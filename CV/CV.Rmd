@@ -1,0 +1,246 @@
+---
+name: Ankit
+surname: Deshmukh
+position: "Assistant Professor"
+address: "A-403, Shyam Sukhan, PDPU Road, Bhaijipura, Gandhinagar, Gujarat, India, 382421"
+phone: +91 96 3052 1359
+www: ankitdeshmukh.com
+email: "deshmukh.acad@gmail.com"
+twitter: anix7n
+github: anixn
+linkedin: anixn
+date: "`r format(Sys.time(), '%B %Y')`"
+headcolor: 414141
+output: 
+    vitae::awesomecv:
+    page_total: TRUE
+    show_footer: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+
+# Load packages
+library(vitae)
+library(tidyverse)
+library(readxl)
+
+# This is the CV path
+cv_path <- here::here("CV","Data.xlsx")
+
+# These are the sheet names
+cv_sheets <- excel_sheets(cv_path)
+
+# These are the column names within each sheet
+cv_sheets_names <- cv_sheets %>% 
+  map(~read_xlsx(path = cv_path, 
+                 sheet = .x, 
+                 n_max = 0
+                 ) %>% names()) %>% 
+  set_names(cv_sheets)
+
+# Define column types for each column name within each sheet
+cv_sheets_col_types <- cv_sheets_names %>% 
+  map(~if_else(str_detect(string = .x, pattern = "Date"), true = "guess", false = "guess"))
+
+# Read data in sheets and set column types directly
+cv_data <- map2(cv_sheets, 
+                cv_sheets_col_types, 
+                ~read_xlsx(path = cv_path, 
+                           sheet = .x, 
+                           col_types = .y)
+                           ) %>% 
+  set_names(cv_sheets)
+```
+
+# BRIEF BIO-SKETCH 
+I am currently working as an assistant professor in the Department of Civil Engineering at Pandit Deendayal Energy University, Gujarat, India. I have obtained a doctoral degree in Water resources from the Indian Institute of Technology, Hyderabad (Jan 2021). My fields of interest are Computational Hydrology, water resource management, and understating the catchment response under anthropogenic changes. In my doctorate, I worked on the approaches to identify the catchment vulnerability to environmental changes. My current research focuses on the development of a Physio-climatic catchment characteristics dataset for the Indian subcontinent that can be utilized for prediction in the ungauged basins. I possess a strong understanding of GIS processing, and efficient in Geo-spatial analysis. I am highly motivated in the field of data analysis (finding meaningful insights in data), skilled in programming with R, MATLAB, and Python scripting, and looking for inter-disciplinary research opportunities and collaboration. I am a passionate learner and trying to be a better teacher.
+
+```{r}
+detailed_entries(data = cv_data$experience, what = Position, when = Year, where = Institution, why = Details)
+```
+
+# Education
+
+#### University Education and Authorization
+
+```{r}
+cv_data$education %>% 
+  filter(Type %in% c("University education")) %>% 
+  arrange(desc(`Date start`), desc(`Date end`)) %>% 
+  detailed_entries(what = Name, when = Year, with = Institution, where = Where, why = Details)
+```
+
+#### Selected Courses
+
+```{r}
+cv_data$education %>% 
+  filter(Type == "Courses") %>% 
+  mutate(Year = str_remove_all(Year, "esent")) %>% 
+  arrange(desc(`Date start`), desc(`Date end`)) %>% 
+  brief_entries(what = Name, when = Year, with = Institution)
+```
+
+# Work Experience
+
+#### Professional Positions
+
+```{r}
+cv_data$experience %>% 
+  filter(Type %in% c("Professional Positions")) %>% 
+  arrange(desc(`Date start`), desc(`Date end`)) %>% 
+  detailed_entries(what = Position, when = Year, with = Institution, where = Where, why = Details)
+```
+
+#### Other Positions
+
+```{r}
+cv_data$experience %>% 
+  filter(Type %in% c("Other Positions")) %>% 
+  arrange(desc(`Date start`), desc(`Date end`)) %>% 
+  detailed_entries(what = Position, when = Year, with = Institution, where = Where, why = Details)
+```
+
+# Publications
+
+**Scientific Publications**
+
+```{r, results='asis'}
+bibliography_entries(here::here("CV","ankit-deshmukh.bib")) %>%
+    arrange(desc(author$family), issued)
+```
+
+#### Other Publications
+
+```{r}
+other_publications <- c("Popular Science Articles", 
+                        "Articles, Chronicles or Commentaries", 
+                        "Expert Opinions/Statements", 
+                        "Lommelegen Q&A")
+
+cv_data$publications %>% 
+  filter(Type %in% other_publications) %>% 
+  mutate(Type = fct_relevel(Type, other_publications)) %>% 
+  arrange(Type) %>% 
+  detailed_entries(what = Title, when = Year, with = Type, why = Details)
+```
+
+# Grants and Awards
+
+```{r}
+cv_data$`grants-awards` %>% 
+  filter(!is.na(Date)) %>% 
+  arrange(desc(Date)) %>% 
+  detailed_entries(what = Title, when = Period, with = Type, where = `Source funder`, why = `Description/aim`)
+```
+
+# Presentations
+
+#### Invited Presentations
+
+```{r}
+cv_data$presentations %>% 
+  filter(Type == "Invited presentation") %>% 
+  arrange(desc(Date)) %>% 
+  detailed_entries(what = glue::glue("{Setting} ({Where})"), 
+                   when = Period, 
+                   why = Title)
+```
+
+#### Other Contributions
+
+```{r}
+condense_and_prep <- function(data) {
+  
+  details <- paste0(nrow(data), " contributions")
+  
+  tibble(
+    details = details, 
+    when = paste0(min(data$Year, na.rm = TRUE), "-", max(data$Year, na.rm = TRUE)), 
+    with = data$Setting %>% unique() %>% paste0(collapse = ", "), 
+    where = data$Where %>% unique() %>% paste0(collapse = "; ")
+  )
+}
+
+cv_data$presentations %>% 
+  filter(Type %in% c("Seminars", "Posters", "Moderated Posters"), 
+         Setting != "Group meeting") %>% 
+  arrange(desc(Date)) %>% 
+  group_by(Type) %>% 
+  nest() %>% 
+  mutate(res = map(data, condense_and_prep)) %>% 
+  unnest(res) %>% 
+  mutate(why = paste0(details, " for ", with, " at ", where)) %>% 
+  detailed_entries(what = Type, when = when, why = why)
+```
+
+# Activities 
+
+#### Educational Activities
+
+```{r}
+# Count similar lectures and put on one single row
+condense_and_prep <- function(data) {
+  
+  data_slice <- data %>% slice(1)
+  
+  tibble(
+    Details = paste0(nrow(data), " contributions: ", data_slice$Details), 
+    Period = paste0(min(data$Year, na.rm = TRUE), " - ", max(data$Year, na.rm = TRUE)), 
+    University = data$University %>% unique() %>% paste0(collapse = ", "), 
+    Where = data$Where %>% unique() %>% paste0(collapse = "; ")
+  )
+}
+
+# Remove those that haven't started yet
+prep <- cv_data$`educational-activities` %>% 
+  filter(`Date start` < Sys.Date())
+
+# Count lectures
+prep_lecture <- prep %>% 
+  filter(What == "Lecture") %>% 
+  group_by(What) %>% 
+  nest() %>% 
+  mutate(res = map(data, condense_and_prep)) %>% 
+  unnest(res) %>% 
+  select(-data)
+
+bind_rows(
+  prep %>% filter(What != "Lecture"), 
+  prep_lecture
+) %>% 
+  arrange(desc(`Date start`), desc(`Date end`)) %>% 
+  detailed_entries(what = glue::glue("{What} ({University})"), 
+                   when = Period, 
+                   why = Details)
+```
+
+#### Service Activities
+
+```{r}
+cv_data$`service-activities` %>% 
+  filter(
+    # Remove those that haven't started yet
+    `Date start` < Sys.Date() & 
+    
+    # Remove oldest entries
+    `Date start` > 2010
+    ) %>% 
+  arrange(desc(`Date start`), desc(`Date end`)) %>% 
+  detailed_entries(what = Position, when = Period, why = Institution)
+```
+
+#### Editorial Activities
+
+```{r}
+prep <- cv_data$`editorial-activities` %>% 
+  filter(What == "Peer Review Activities") %>% 
+  arrange(desc(IF))
+
+tibble(
+  what = prep %>% pull("What") %>% unique(), 
+  when = paste0(min(prep$Year, na.rm = TRUE), " - ", max(prep$Year, na.rm = TRUE)), 
+  why = prep %>% pull("Journal") %>% unique() %>% paste0(collapse = ", ")
+) %>% 
+  detailed_entries(what = what, when = when, why = why)
+```
